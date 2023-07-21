@@ -27,6 +27,7 @@ namespace DummyClient
             {
                 try
                 {
+
                 }
                 catch (Exception e)
                 {
@@ -36,10 +37,6 @@ namespace DummyClient
                 Thread.Sleep(100);
 
             }
-            // 통신을 위한 소켓 생성
-
-
-
         }
     }
 }

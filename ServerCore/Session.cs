@@ -12,7 +12,7 @@ namespace ServerCore
     public abstract class PacketSession: Session
     {
         public static readonly short HeaderSize = 2;
-        //데이터 파싱할때 , 넘어온 패킷의 필수값(size,packetId)이 ushort형이라 [2바이트][2바이트][...] 형태로 넘어옴.
+        //데이터 파싱할때, 넘어온 패킷의 필수값(size,packetId)이 ushort형이라 [2바이트][2바이트][...] 형태로 넘어옴.
         public sealed override int OnRecv(ArraySegment<byte> buffer)
         {
             int processLen = 0;
@@ -40,22 +40,25 @@ namespace ServerCore
 
         public abstract void OnRecvPacket(ArraySegment<byte> buffer);
     }
+
     //세션이란 소켓통신을 시작하고 클라와 서버가 데이터를 주고받는 과정을 담당하는 클래스라고 생각하면됨.
     public abstract class Session
     {
-        Socket _socket; //이 소켓에는 Accept가 성공한 소켓이 들어가겠지.
+        Socket _socket; //이 소켓에는 Accept가 성공한 소켓이 들어가겠지 -> Accept가 실패했다면, 세션 진행이 불가능
         int _disconnected = 0;
 
         RecvBuffer _recvBuffer = new RecvBuffer(1024);
-
         //Send는 Recv와 구현 방법이 다름. Send는 Queue를 사용.
-        Queue<ArraySegment<byte>> _sendQueue = new Queue<ArraySegment<byte> >();
+        Queue<ArraySegment<byte>> _sendQueue = new Queue<ArraySegment<byte>>();
+
         object _lock = new object();
         List<ArraySegment<byte>> _pendingList = new List<ArraySegment<byte>>();
         SocketAsyncEventArgs _sendArgs = new SocketAsyncEventArgs();
         SocketAsyncEventArgs _recvArgs = new SocketAsyncEventArgs();
 
         //결국 서버 컨텐츠에서 인터페이스화된 기능들을 사용할것이기 때문에 상속을 위해 추상화작업진행.
+        //이렇게 추상클래스로 만든이유 ? -> 특정 동작을 할 때, 컨텐츠단에서 추가적으로 무언가를 해주고 싶을 수 있기 때문이기도 하고
+        //사용하는 쪽에선 인터페이스 하나만 쓰는게 깔끔하기도 하고 편리하기 때문 ? 
         public abstract void OnConnected(EndPoint endPoint);
         public abstract int OnRecv(ArraySegment<byte> buffer);
         public abstract void OnSend(int numOfbytes);
@@ -76,6 +79,8 @@ namespace ServerCore
             lock (_lock)
             {
                 _sendQueue.Enqueue(sendBuff);
+                
+                 
                 if (_pendingList.Count == 0)
                 {
                     RegisterSend();
@@ -83,7 +88,6 @@ namespace ServerCore
             }
             
         }
-
         public void Disconnect()
         {
             if (Interlocked.Exchange(ref _disconnected, 1) == 1)
@@ -97,7 +101,7 @@ namespace ServerCore
         
         void RegisterSend()
         {
-            while (_sendQueue.Count > 0) 
+            while (_sendQueue.Count > 0)
             {
                 ArraySegment<byte> buff = _sendQueue.Dequeue();
                 _pendingList.Add(buff);
@@ -105,7 +109,7 @@ namespace ServerCore
 
             _sendArgs.BufferList = _pendingList;
 
-            bool pending = _socket.SendAsync(_sendArgs);
+            bool pending = _socket.SendAsync(_sendArgs); //pending이 true를 반환하면 완료될때, 이벤트 핸들러를 통해 OnSendCompleted를 호출.
             if (pending == false)
             {
                 OnSendCompleted(null, _sendArgs);
@@ -151,7 +155,7 @@ namespace ServerCore
             ArraySegment<byte> segment = _recvBuffer.WriteSegment;
             _recvArgs.SetBuffer(segment.Array, segment.Offset, segment.Count); 
 
-            //이전의 AcceptAsync와 비슷한 맥락. 클라의 connect가 서버의 accept로 연결된 것처럼 클라의 send가 recv로 연결된다고 생각하자
+            //이전의 AcceptAsync와 비슷한 맥락. 클라의 connect가 서버의 accept로 연결된 것처럼 클라의 send가 recv로 연결된다고 생각
             bool pending = _socket.ReceiveAsync(_recvArgs);
             if (pending == false)
             {

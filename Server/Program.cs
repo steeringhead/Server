@@ -18,6 +18,8 @@ namespace Server
         static void Main(string[] args)
         {
 
+            PacketManager.Instance.Register();
+
             //Socket은 인자를 넘겨줘야함. IP주소 , TCP인지UDP인지 정해줘야함
             //Dns사용 
             string host = Dns.GetHostName(); //내 IP 추출
